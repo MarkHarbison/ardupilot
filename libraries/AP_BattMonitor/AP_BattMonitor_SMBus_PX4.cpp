@@ -16,7 +16,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <AP_HAL.h>
+#include <AP_HAL/AP_HAL.h>
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4
 
@@ -71,7 +71,6 @@ void AP_BattMonitor_SMBus_PX4::read()
             _state.healthy = true;
 
             // read capacity
-            uint32_t tnow = hal.scheduler->micros();
             if ((_batt_fd >= 0) && !_capacity_updated) {
                 uint16_t tmp;
                 if (ioctl(_batt_fd, BATT_SMBUS_GET_CAPACITY, (unsigned long)&tmp) == OK) {

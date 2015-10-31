@@ -6,8 +6,8 @@
 #ifndef __AC_PI_2D_H__
 #define __AC_PI_2D_H__
 
-#include <AP_Common.h>
-#include <AP_Param.h>
+#include <AP_Common/AP_Common.h>
+#include <AP_Param/AP_Param.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -50,7 +50,7 @@ public:
     void        save_gains();
 
     /// operator function call for easy initialisation
-    void operator() (float p, float i, float imaxval, float input_filt_hz, float dt );
+    void operator() (float p, float i, float imaxval, float input_filt_hz, float dt);
 
     // get accessors
     float       kP() const { return _kp.get(); }
@@ -62,7 +62,7 @@ public:
     // set accessors
     void        kP(const float v) { _kp.set(v); }
     void        kI(const float v) { _ki.set(v); }
-    void        imax(const float v) { _imax.set(fabs(v)); }
+    void        imax(const float v) { _imax.set(fabsf(v)); }
     void        filt_hz(const float v);
 
     Vector2f    get_integrator() const { return _integrator; }

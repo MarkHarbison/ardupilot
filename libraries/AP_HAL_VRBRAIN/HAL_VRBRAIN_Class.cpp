@@ -1,10 +1,12 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 
-#include <AP_HAL.h>
+#include <AP_HAL/AP_HAL.h>
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
 
-#include <AP_HAL_VRBRAIN.h>
+#include <assert.h>
+
+#include "AP_HAL_VRBRAIN.h"
 #include "AP_HAL_VRBRAIN_Namespace.h"
 #include "HAL_VRBRAIN_Class.h"
 #include "Scheduler.h"
@@ -16,8 +18,8 @@
 #include "Util.h"
 #include "GPIO.h"
 
-#include <AP_HAL_Empty.h>
-#include <AP_HAL_Empty_Private.h>
+#include <AP_HAL_Empty/AP_HAL_Empty.h>
+#include <AP_HAL_Empty/AP_HAL_Empty_Private.h>
 
 #include <stdlib.h>
 #include <systemlib/systemlib.h>
@@ -103,7 +105,9 @@ HAL_VRBRAIN::HAL_VRBRAIN() :
         &uartCDriver,  /* uartC */
         &uartDDriver,  /* uartD */
         &uartEDriver,  /* uartE */
-        &i2cDriver, /* i2c */
+        &i2cDriver, /* Empty i2c */
+        &i2cDriver, /* Empty i2c */
+        &i2cDriver, /* Empty i2c */
         &spiDeviceManager, /* spi */
         &analogIn, /* analogin */
         &storageDriver, /* storage */
@@ -232,7 +236,7 @@ static void usage(void)
 }
 
 
-void HAL_VRBRAIN::init(int argc, char * const argv[]) const
+void HAL_VRBRAIN::run(int argc, char * const argv[], Callbacks* callbacks) const
 {
     int i;
     const char *deviceA = UARTA_DEFAULT_DEVICE;
@@ -246,6 +250,9 @@ void HAL_VRBRAIN::init(int argc, char * const argv[]) const
         usage();
         exit(1);
     }
+
+    assert(callbacks);
+    g_callbacks = callbacks;
 
     for (i=0; i<argc; i++) {
         if (strcmp(argv[i], "start") == 0) {
@@ -337,7 +344,10 @@ void HAL_VRBRAIN::init(int argc, char * const argv[]) const
     exit(1);
 }
 
-const HAL_VRBRAIN AP_HAL_VRBRAIN;
+const AP_HAL::HAL& AP_HAL::get_HAL() {
+    static const HAL_VRBRAIN hal_vrbrain;
+    return hal_vrbrain;
+}
 
 #endif // CONFIG_HAL_BOARD == HAL_BOARD_VRBRAIN
 

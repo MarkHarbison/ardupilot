@@ -21,13 +21,15 @@
 
 #ifndef AP_PARAM_H
 #define AP_PARAM_H
-#include <AP_HAL.h>
+#include <AP_HAL/AP_HAL.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdint.h>
+#include <math.h>
+#include "float.h"
 
-#include <AP_Progmem.h>
-#include <../StorageManager/StorageManager.h>
+#include <AP_Progmem/AP_Progmem.h>
+#include <StorageManager/StorageManager.h>
 
 #define AP_MAX_NAME_SIZE 16
 #define AP_NESTED_GROUPS_ENABLED
@@ -38,7 +40,7 @@
 #define AP_VAROFFSET(type, element) (((uintptr_t)(&((const type *)1)->element))-1)
 
 // find the type of a variable given the class and element
-#define AP_CLASSTYPE(class, element) (((const class *) 1)->element.vtype)
+#define AP_CLASSTYPE(class, element) ((uint8_t)(((const class *) 1)->element.vtype))
 
 // declare a group var_info line
 #define AP_GROUPINFO(name, idx, class, element, def) { AP_CLASSTYPE(class, element), idx, name, AP_VAROFFSET(class, element), {def_value : def} }
@@ -87,7 +89,7 @@ public:
         uint8_t type; // AP_PARAM_*
         const char name[AP_MAX_NAME_SIZE+1];
         uint8_t key; // k_param_*
-        void *ptr;    // pointer to the variable in memory
+        const void *ptr;    // pointer to the variable in memory
         union {
             const struct GroupInfo *group_info;
             const float def_value;
@@ -196,13 +198,10 @@ public:
     // set a AP_Param variable to a specified value
     static void         set_value(enum ap_var_type type, void *ptr, float def_value);
 
-
     /*
-      set a parameter by name
-
-      The parameter pointer is returned on success
+      set a parameter to a float
     */
-    static AP_Param *set_param_by_name(const char *pname, float value, enum ap_var_type *ptype);
+    void set_float(float value, enum ap_var_type var_type);
 
     // load default values for scalars in a group
     static void         setup_object_defaults(const void *object_pointer, const struct GroupInfo *group_info);
@@ -225,7 +224,7 @@ public:
     static void         erase_all(void);
 
     /// print the value of all variables
-    static void         show_all(AP_HAL::BetterStream *port);
+    static void         show_all(AP_HAL::BetterStream *port, bool showKeyValues=false);
 
     /// print the value of one variable
     static void         show(const AP_Param *param, 
@@ -421,7 +420,7 @@ public:
     /// Combined set and save
     ///
     bool set_and_save(const T &v) {
-        bool force = (_value != v);
+        bool force = fabsf(_value - v) < FLT_EPSILON;
         set(v);
         return save(force);
     }

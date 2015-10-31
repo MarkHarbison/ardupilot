@@ -1,3 +1,4 @@
+/// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 #ifndef __AP_AHRS_DCM_H__
 #define __AP_AHRS_DCM_H__
 /*
@@ -26,7 +27,7 @@ class AP_AHRS_DCM : public AP_AHRS
 public:
     // Constructors
     AP_AHRS_DCM(AP_InertialSensor &ins, AP_Baro &baro, AP_GPS &gps) :
-    AP_AHRS(ins, baro, gps),
+        AP_AHRS(ins, baro, gps),
         _omega_I_sum_time(0.0f),
         _renorm_val_sum(0.0f),
         _renorm_val_count(0),
@@ -49,14 +50,15 @@ public:
 #if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
         _imu1_weight(0.5f),
 #endif
-        _last_failure_ms(0)
+        _last_failure_ms(0),
+        _last_startup_ms(0)
     {
         _dcm_matrix.identity();
 
         // these are experimentally derived from the simulator
         // with large drift levels
-        _ki = 0.0087;
-        _ki_yaw = 0.01;
+        _ki = 0.0087f;
+        _ki_yaw = 0.01f;
     }
 
     // return the smoothed gyro vector corrected for drift
@@ -89,8 +91,12 @@ public:
     virtual bool get_position(struct Location &loc) const;
 
     // status reporting
-    float           get_error_rp(void) const { return _error_rp; } 
-    float           get_error_yaw(void) const { return _error_yaw; }
+    float           get_error_rp(void) const {
+        return _error_rp;
+    }
+    float           get_error_yaw(void) const {
+        return _error_yaw;
+    }
 
     // return a wind estimation vector, in m/s
     Vector3f wind_estimate(void) {
@@ -109,6 +115,9 @@ public:
     // is the AHRS subsystem healthy?
     bool healthy(void) const;
 
+    // time that the AHRS has been up
+    uint32_t uptime_ms(void) const;
+
 private:
     float _ki;
     float _ki_yaw;
@@ -123,6 +132,7 @@ private:
     float           yaw_error_compass();
     void            euler_angles(void);
     bool            have_gps(void) const;
+    bool            use_fast_gains(void) const;
 
     // primary representation of attitude of board used for all inertial calculations
     Matrix3f _dcm_matrix;
@@ -196,6 +206,9 @@ private:
 
     // last time AHRS failed in milliseconds
     uint32_t _last_failure_ms;
+
+    // time when DCM was last reset
+    uint32_t _last_startup_ms;
 };
 
 #endif // __AP_AHRS_DCM_H__

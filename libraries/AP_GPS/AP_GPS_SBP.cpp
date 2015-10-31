@@ -21,9 +21,9 @@
 //  Swift Binary Protocol format: http://docs.swift-nav.com/
 //
 
-#include <AP_GPS.h>
+#include "AP_GPS.h"
 #include "AP_GPS_SBP.h"
-#include <DataFlash.h>
+#include <DataFlash/DataFlash.h>
 
 #if GPS_RTK_AVAILABLE
 
@@ -54,11 +54,11 @@ AP_GPS_SBP::AP_GPS_SBP(AP_GPS &_gps, AP_GPS::GPS_State &_state,
                        AP_HAL::UARTDriver *_port) :
     AP_GPS_Backend(_gps, _state, _port),
 
-    crc_error_counter(0),
+    last_injected_data_ms(0),
+    last_iar_num_hypotheses(0),
     last_full_update_tow(0),
     last_full_update_cpu_ms(0),
-    last_injected_data_ms(0),
-    last_iar_num_hypotheses(0)
+    crc_error_counter(0)
 {
 
     Debug("SBP Driver Initialized");
@@ -194,11 +194,11 @@ AP_GPS_SBP::_sbp_process_message() {
             break;
 
         case SBP_GPS_TIME_MSGTYPE:
-            last_gps_time = *(struct sbp_gps_time_t*)parser_state.msg_buff;
+            memcpy(&last_gps_time, parser_state.msg_buff, sizeof(last_gps_time));
             break;
 
         case SBP_VEL_NED_MSGTYPE:
-            last_vel_ned = *(struct sbp_vel_ned_t*)parser_state.msg_buff;
+            memcpy(&last_vel_ned, parser_state.msg_buff, sizeof(last_vel_ned));
             break;
 
         case SBP_POS_LLH_MSGTYPE: {
@@ -214,7 +214,7 @@ AP_GPS_SBP::_sbp_process_message() {
         }
 
         case SBP_DOPS_MSGTYPE:
-            last_dops = *(struct sbp_dops_t*)parser_state.msg_buff;
+            memcpy(&last_dops, parser_state.msg_buff, sizeof(last_dops));
             break;
 
         case SBP_TRACKING_STATE_MSGTYPE:
@@ -229,8 +229,9 @@ AP_GPS_SBP::_sbp_process_message() {
         }
 
         default:
-            // Break out of any logging if it's an unsupported message
-            return;
+            // log anyway if it's an unsupported message. 
+            // The log mask will be used to adjust or suppress logging
+            break; 
     }
 
     logging_log_raw_sbp(parser_state.msg_type, parser_state.sender_id, parser_state.msg_len, parser_state.msg_buff);
@@ -276,10 +277,7 @@ AP_GPS_SBP::_attempt_state_update()
         float ground_vector_sq = state.velocity[0]*state.velocity[0] + state.velocity[1]*state.velocity[1];
         state.ground_speed = safe_sqrt(ground_vector_sq);
 
-        state.ground_course_cd = (int32_t) 100*ToDeg(atan2f(state.velocity[1], state.velocity[0]));
-        if (state.ground_course_cd < 0) {
-          state.ground_course_cd += 36000;
-        }
+        state.ground_course_cd = wrap_360_cd((int32_t) 100*ToDeg(atan2f(state.velocity[1], state.velocity[0])));
 
         // Update position state
 
@@ -402,7 +400,7 @@ AP_GPS_SBP::_detect(struct SBP_detect_state &state, uint8_t data)
 
 struct PACKED log_SbpLLH {
     LOG_PACKET_HEADER;
-    uint32_t timestamp;
+    uint64_t time_us;
     uint32_t tow;
     int32_t  lat;
     int32_t  lon;
@@ -413,7 +411,7 @@ struct PACKED log_SbpLLH {
 
 struct PACKED log_SbpHealth {
     LOG_PACKET_HEADER;
-    uint32_t timestamp;
+    uint64_t time_us;
     uint32_t crc_error_counter;
     uint32_t last_injected_data_ms;
     uint32_t last_iar_num_hypotheses;
@@ -421,7 +419,7 @@ struct PACKED log_SbpHealth {
 
 struct PACKED log_SbpRAW1 {
     LOG_PACKET_HEADER;
-    uint32_t timestamp;
+    uint64_t time_us;
     uint16_t msg_type;
     uint16_t sender_id;
     uint8_t msg_len;
@@ -430,7 +428,7 @@ struct PACKED log_SbpRAW1 {
 
 struct PACKED log_SbpRAW2 {
     LOG_PACKET_HEADER;
-    uint32_t timestamp;
+    uint64_t time_us;
     uint16_t msg_type;
     uint8_t data2[192];
 };
@@ -438,11 +436,11 @@ struct PACKED log_SbpRAW2 {
 
 static const struct LogStructure sbp_log_structures[] PROGMEM = {
     { LOG_MSG_SBPHEALTH, sizeof(log_SbpHealth),
-      "SBPH", "IIII",   "TimeMS,CrcError,LastInject,IARhyp" },
+      "SBPH", "QIII",   "TimeUS,CrcError,LastInject,IARhyp" },
     { LOG_MSG_SBPRAW1, sizeof(log_SbpRAW1),
-      "SBR1", "IHHBZ",      "TimeMS,msg_type,sender_id,msg_len,d1" },
+      "SBR1", "QHHBZ",      "TimeUS,msg_type,sender_id,msg_len,d1" },
     { LOG_MSG_SBPRAW2, sizeof(log_SbpRAW2),
-      "SBR2", "IHZZZ",      "TimeMS,msg_type,d2,d3,d4" }
+      "SBR2", "QHZZZ",      "TimeUS,msg_type,d2,d3,d4" }
 };
 
 void
@@ -450,7 +448,7 @@ AP_GPS_SBP::logging_write_headers(void)
 {
     if (!logging_started) {
         logging_started = true;
-        gps._DataFlash->AddLogFormats(sbp_log_structures, sizeof(sbp_log_structures) / sizeof(LogStructure));
+        gps._DataFlash->AddLogFormats(sbp_log_structures, ARRAY_SIZE(sbp_log_structures));
     }
 }
 
@@ -466,7 +464,7 @@ AP_GPS_SBP::logging_log_full_update()
 
     struct log_SbpHealth pkt = {
         LOG_PACKET_HEADER_INIT(LOG_MSG_SBPHEALTH),
-        timestamp       : hal.scheduler->millis(),
+        time_us                    : hal.scheduler->micros64(),
         crc_error_counter          : crc_error_counter,
         last_injected_data_ms      : last_injected_data_ms,
         last_iar_num_hypotheses    : last_iar_num_hypotheses,
@@ -492,23 +490,23 @@ AP_GPS_SBP::logging_log_raw_sbp(uint16_t msg_type,
 
     logging_write_headers();
 
-    uint32_t now = hal.scheduler->millis();
+    uint64_t time_us = hal.scheduler->micros64();
 
     struct log_SbpRAW1 pkt = {
         LOG_PACKET_HEADER_INIT(LOG_MSG_SBPRAW1),
-        timestamp       : now,
+        time_us         : time_us,
         msg_type        : msg_type,
         sender_id       : sender_id,
         msg_len         : msg_len,
     };
-    memcpy(pkt.data1, msg_buff, max(msg_len,64)); 
+    memcpy(pkt.data1, msg_buff, min(msg_len,64)); 
     gps._DataFlash->WriteBlock(&pkt, sizeof(pkt));    
 
     if (msg_len > 64) {
 
         struct log_SbpRAW2 pkt2 = {
             LOG_PACKET_HEADER_INIT(LOG_MSG_SBPRAW2),
-            timestamp       : now,
+            time_us         : time_us,
             msg_type        : msg_type,
         };
         memcpy(pkt2.data2, &msg_buff[64], msg_len - 64);

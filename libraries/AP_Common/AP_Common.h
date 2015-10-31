@@ -44,6 +44,11 @@
 // this can be used to optimize individual functions
 #define OPTIMIZE(level) __attribute__((optimize(level)))
 
+// sometimes we need to prevent inlining to prevent large stack usage
+#define NOINLINE __attribute__((noinline))
+
+#define FORMAT(a,b) __attribute__((format(printf, a, b)))
+
 // Make some dire warnings into errors
 //
 // Some warnings indicate questionable code; rather than let
@@ -67,6 +72,8 @@
 #define ToRad(x) radians(x)	// *pi/180
 #define ToDeg(x) degrees(x)	// *180/pi
 
+#define LOCATION_ALT_MAX_M  83000   // maximum altitude (in meters) that can be fit into Location structure's alt field
+
 /*
   check if bit bitnumber is set in value, returned as a
   bool. Bitnumber starts at 0 for the first bit
@@ -76,6 +83,14 @@
 // get high or low bytes from 2 byte integer
 #define LOWBYTE(i) ((uint8_t)(i))
 #define HIGHBYTE(i) ((uint8_t)(((uint16_t)(i))>>8))
+
+template <typename T, size_t N>
+char (&_ARRAY_SIZE_HELPER(T (&_arr)[N]))[N];
+
+template <typename T>
+char (&_ARRAY_SIZE_HELPER(T (&_arr)[0]))[0];
+
+#define ARRAY_SIZE(_arr) sizeof(_ARRAY_SIZE_HELPER(_arr))
 
 // @}
 

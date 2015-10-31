@@ -15,13 +15,14 @@
 #ifndef AP_Mission_h
 #define AP_Mission_h
 
-#include <GCS_MAVLink.h>
-#include <AP_Math.h>
-#include <AP_Common.h>
-#include <AP_Param.h>
-#include <AP_AHRS.h>
-#include <AP_HAL.h>
-#include <../StorageManager/StorageManager.h>
+#include <AP_HAL/AP_HAL.h>
+#include <AP_Vehicle/AP_Vehicle.h>
+#include <GCS_MAVLink/GCS_MAVLink.h>
+#include <AP_Math/AP_Math.h>
+#include <AP_Common/AP_Common.h>
+#include <AP_Param/AP_Param.h>
+#include <AP_AHRS/AP_AHRS.h>
+#include <StorageManager/StorageManager.h>
 
 // definitions
 #define AP_MISSION_EEPROM_VERSION           0x65AE  // version number stored in first four bytes of eeprom.  increment this by one when eeprom format is changed
@@ -128,7 +129,7 @@ public:
     struct PACKED Digicam_Control {
         uint8_t session;        // 1 = on, 0 = off
         uint8_t zoom_pos;
-        uint8_t zoom_step;
+        int8_t zoom_step;       // +1 = zoom in, -1 = zoom out
         uint8_t focus_lock;
         uint8_t shooting_cmd;
         uint8_t cmd_id;
@@ -143,6 +144,13 @@ public:
     struct PACKED Gripper_Command {
         uint8_t num;            // gripper number
         uint8_t action;         // action (0 = release, 1 = grab)
+    };
+
+    // high altitude balloon altitude wait
+    struct PACKED Altitude_Wait {
+        float altitude; // meters
+        float descent_rate; // m/s
+        uint8_t wiggle_time; // seconds
     };
 
     // nav guided command
@@ -199,6 +207,9 @@ public:
         // do-guided-limits
         Guided_Limits_Command guided_limits;
 
+        // cam trigg distance
+        Altitude_Wait altitude_wait;
+
         // location
         Location location;      // Waypoint location
 
@@ -215,8 +226,8 @@ public:
     };
 
     // main program function pointers
-    typedef bool (*mission_cmd_fn_t)(const Mission_Command& cmd);
-    typedef void (*mission_complete_fn_t)(void);
+    FUNCTOR_TYPEDEF(mission_cmd_fn_t, bool, const Mission_Command&);
+    FUNCTOR_TYPEDEF(mission_complete_fn_t, void);
 
     // mission state enumeration
     enum mission_state {
@@ -232,6 +243,7 @@ public:
         _cmd_verify_fn(cmd_verify_fn),
         _mission_complete_fn(mission_complete_fn),
         _prev_nav_cmd_index(AP_MISSION_CMD_INDEX_NONE),
+        _prev_nav_cmd_wp_index(AP_MISSION_CMD_INDEX_NONE),
         _last_change_time_ms(0)
     {
         // load parameter defaults
@@ -321,6 +333,11 @@ public:
     ///     if there was no previous nav command it returns AP_MISSION_CMD_INDEX_NONE
     ///     we do not return the entire command to save on RAM
     uint16_t get_prev_nav_cmd_index() const { return _prev_nav_cmd_index; }
+
+    /// get_prev_nav_cmd_with_wp_index - returns the previous "navigation" commands index that contains a waypoint (i.e. position in the mission command list)
+    ///     if there was no previous nav command it returns AP_MISSION_CMD_INDEX_NONE
+    ///     we do not return the entire command to save on RAM
+    uint16_t get_prev_nav_cmd_with_wp_index() const { return _prev_nav_cmd_wp_index; }
 
     /// get_next_nav_cmd - gets next "navigation" command found at or after start_index
     ///     returns true if found, false if not found (i.e. reached end of mission command list)
@@ -443,6 +460,7 @@ private:
     struct Mission_Command  _nav_cmd;   // current "navigation" command.  It's position in the command list is held in _nav_cmd.index
     struct Mission_Command  _do_cmd;    // current "do" command.  It's position in the command list is held in _do_cmd.index
     uint16_t                _prev_nav_cmd_index;    // index of the previous "navigation" command.  Rarely used which is why we don't store the whole command
+    uint16_t                _prev_nav_cmd_wp_index; // index of the previous "navigation" command that contains a waypoint.  Rarely used which is why we don't store the whole command
 
     // jump related variables
     struct jump_tracking_struct {

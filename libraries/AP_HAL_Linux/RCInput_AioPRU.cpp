@@ -10,7 +10,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 
-#include <AP_HAL.h>
+#include <AP_HAL/AP_HAL.h>
 
 #if CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_BBBMINI
 
@@ -34,7 +34,7 @@ extern const AP_HAL::HAL& hal;
 
 using namespace Linux;
 
-void LinuxRCInput_AioPRU::init(void*)
+void RCInput_AioPRU::init(void*)
 {
     int mem_fd = open("/dev/mem", O_RDWR|O_SYNC);
     if (mem_fd == -1) {
@@ -48,7 +48,7 @@ void LinuxRCInput_AioPRU::init(void*)
 /*
   called at 1kHz to check for new pulse capture data from the PRU
  */
-void LinuxRCInput_AioPRU::_timer_tick()
+void RCInput_AioPRU::_timer_tick()
 {
     while (ring_buffer->ring_head != ring_buffer->ring_tail) {
         if (ring_buffer->ring_tail >= NUM_RING_ENTRIES) {

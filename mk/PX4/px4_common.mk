@@ -37,12 +37,12 @@ MODULES		+= drivers/ets_airspeed
 MODULES		+= drivers/meas_airspeed
 MODULES		+= drivers/mkblctrl
 MODULES		+= drivers/batt_smbus
+MODULES		+= drivers/irlock
 
 #
 # System commands
 #
 MODULES		+= systemcmds/bl_update
-MODULES		+= systemcmds/boardinfo
 MODULES		+= systemcmds/mixer
 MODULES		+= systemcmds/perf
 MODULES		+= systemcmds/pwm
@@ -51,6 +51,8 @@ MODULES		+= systemcmds/top
 #MODULES	+= systemcmds/tests
 MODULES		+= systemcmds/nshterm
 MODULES         += systemcmds/mtd
+MODULES         += systemcmds/ver
+
 ifneq ($(wildcard $(PX4_ROOT)/src/systemcmds/reflect),)  
 MODULES         += systemcmds/reflect
 endif

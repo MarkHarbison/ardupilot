@@ -1,14 +1,15 @@
 // -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 
-#include <AP_Common.h>
-#include <AP_Progmem.h>
-#include <AP_Param.h>
-#include <AP_Mount.h>
-#include <AP_Mount_Backend.h>
-#include <AP_Mount_Servo.h>
-#include <AP_Mount_MAVLink.h>
-#include <AP_Mount_Alexmos.h>
-#include <AP_Mount_SToRM32.h>
+#include <AP_Common/AP_Common.h>
+#include <AP_Progmem/AP_Progmem.h>
+#include <AP_Param/AP_Param.h>
+#include "AP_Mount.h"
+#include "AP_Mount_Backend.h"
+#include "AP_Mount_Servo.h"
+#include "AP_Mount_MAVLink.h"
+#include "AP_Mount_Alexmos.h"
+#include "AP_Mount_SToRM32.h"
+#include "AP_Mount_SToRM32_serial.h"
 
 const AP_Param::GroupInfo AP_Mount::var_info[] PROGMEM = {
     // @Param: _DEFLT_MODE
@@ -94,7 +95,7 @@ const AP_Param::GroupInfo AP_Mount::var_info[] PROGMEM = {
     // @Param: _RC_IN_ROLL
     // @DisplayName: roll RC input channel
     // @Description: 0 for none, any other for the RC channel to be used to control roll movements
-    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8
+    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8,9:RC9,10:RC10,11:RC11,12:RC12
     // @User: Standard
     AP_GROUPINFO("_RC_IN_ROLL",  7, AP_Mount, state[0]._roll_rc_in, 0),
 
@@ -119,7 +120,7 @@ const AP_Param::GroupInfo AP_Mount::var_info[] PROGMEM = {
     // @Param: _RC_IN_TILT
     // @DisplayName: tilt (pitch) RC input channel
     // @Description: 0 for none, any other for the RC channel to be used to control tilt (pitch) movements
-    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8
+    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8,9:RC9,10:RC10,11:RC11,12:RC12
     // @User: Standard
     AP_GROUPINFO("_RC_IN_TILT",  10, AP_Mount, state[0]._tilt_rc_in,    0),
 
@@ -144,7 +145,7 @@ const AP_Param::GroupInfo AP_Mount::var_info[] PROGMEM = {
     // @Param: _RC_IN_PAN
     // @DisplayName: pan (yaw) RC input channel
     // @Description: 0 for none, any other for the RC channel to be used to control pan (yaw) movements
-    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8
+    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8,9:RC9,10:RC10,11:RC11,12:RC12
     // @User: Standard
     AP_GROUPINFO("_RC_IN_PAN",  13, AP_Mount, state[0]._pan_rc_in,       0),
 
@@ -195,7 +196,7 @@ const AP_Param::GroupInfo AP_Mount::var_info[] PROGMEM = {
     // @Param: _TYPE
     // @DisplayName: Mount Type
     // @Description: Mount Type (None, Servo or MAVLink)
-    // @Values: 0:None, 1:Servo, 2:MAVLink, 3:Alexmos Serial, 4:SToRM32
+    // @Values: 0:None, 1:Servo, 2:3DR Solo, 3:Alexmos Serial, 4:SToRM32 MAVLink, 5:SToRM32 Serial
     // @User: Standard
     AP_GROUPINFO("_TYPE", 19, AP_Mount, state[0]._type, 0),
 
@@ -358,7 +359,7 @@ const AP_Param::GroupInfo AP_Mount::var_info[] PROGMEM = {
     // @Param: 2_RC_IN_ROLL
     // @DisplayName: Mount2's roll RC input channel
     // @Description: 0 for none, any other for the RC channel to be used to control roll movements
-    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8
+    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8,9:RC9,10:RC10,11:RC11,12:RC12
     // @User: Standard
     AP_GROUPINFO("2_RC_IN_ROLL",    31, AP_Mount, state[1]._roll_rc_in, 0),
 
@@ -383,7 +384,7 @@ const AP_Param::GroupInfo AP_Mount::var_info[] PROGMEM = {
     // @Param: 2_RC_IN_TILT
     // @DisplayName: Mount2's tilt (pitch) RC input channel
     // @Description: 0 for none, any other for the RC channel to be used to control tilt (pitch) movements
-    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8
+    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8,9:RC9,10:RC10,11:RC11,12:RC12
     // @User: Standard
     AP_GROUPINFO("2_RC_IN_TILT",    34, AP_Mount, state[1]._tilt_rc_in,    0),
 
@@ -408,7 +409,7 @@ const AP_Param::GroupInfo AP_Mount::var_info[] PROGMEM = {
     // @Param: 2_RC_IN_PAN
     // @DisplayName: Mount2's pan (yaw) RC input channel
     // @Description: 0 for none, any other for the RC channel to be used to control pan (yaw) movements
-    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8
+    // @Values: 0:Disabled,5:RC5,6:RC6,7:RC7,8:RC8,9:RC9,10:RC10,11:RC11,12:RC12
     // @User: Standard
     AP_GROUPINFO("2_RC_IN_PAN",     37, AP_Mount, state[1]._pan_rc_in,       0),
 
@@ -451,7 +452,7 @@ const AP_Param::GroupInfo AP_Mount::var_info[] PROGMEM = {
     // @Param: 2_TYPE
     // @DisplayName: Mount2 Type
     // @Description: Mount Type (None, Servo or MAVLink)
-    // @Values: 0:None, 1:Servo, 2:MAVLink, 3:Alexmos Serial, 4:SToRM32
+    // @Values: 0:None, 1:Servo, 2:3DR Solo, 3:Alexmos Serial, 4:SToRM32 MAVLink, 5:SToRM32 Serial
     // @User: Standard
     AP_GROUPINFO("2_TYPE",           42, AP_Mount, state[1]._type, 0),
 #endif // AP_MOUNT_MAX_INSTANCES > 1
@@ -470,7 +471,6 @@ AP_Mount::AP_Mount(const AP_AHRS_TYPE &ahrs, const struct Location &current_loc)
     // initialise backend pointers and mode
     for (uint8_t i=0; i<AP_MOUNT_MAX_INSTANCES; i++) {
         _backends[i] = NULL;
-        state[i]._mode = (enum MAV_MOUNT_MODE)state[i]._default_mode.get();
     }
 }
 
@@ -482,11 +482,23 @@ void AP_Mount::init(const AP_SerialManager& serial_manager)
         return;
     }
 
+    // default mount to servo mount if rc output channels to control roll, tilt or pan have been defined
+    if (!state[0]._type.load()) {
+        if (RC_Channel_aux::function_assigned(RC_Channel_aux::Aux_servo_function_t::k_mount_pan) ||
+            RC_Channel_aux::function_assigned(RC_Channel_aux::Aux_servo_function_t::k_mount_tilt) ||
+            RC_Channel_aux::function_assigned(RC_Channel_aux::Aux_servo_function_t::k_mount_roll)) {
+                state[0]._type.set_and_save(Mount_Type_Servo);
+        }
+    }
+
     // primary is reset to the first instantiated mount
     bool primary_set = false;
 
     // create each instance
     for (uint8_t instance=0; instance<AP_MOUNT_MAX_INSTANCES; instance++) {
+        // default instance's state
+        state[instance]._mode = (enum MAV_MOUNT_MODE)state[instance]._default_mode.get();
+
         MountType mount_type = get_mount_type(instance);
 
         // check for servo mounts
@@ -506,9 +518,14 @@ void AP_Mount::init(const AP_SerialManager& serial_manager)
             _backends[instance] = new AP_Mount_Alexmos(*this, state[instance], instance);
             _num_instances++;
 
-        // check for SToRM32 mounts
+        // check for SToRM32 mounts using MAVLink protocol
         } else if (mount_type == Mount_Type_SToRM32) {
             _backends[instance] = new AP_Mount_SToRM32(*this, state[instance], instance);
+            _num_instances++;
+
+        // check for SToRM32 mounts using serial protocol
+        } else if (mount_type == Mount_Type_SToRM32_serial) {
+            _backends[instance] = new AP_Mount_SToRM32_serial(*this, state[instance], instance);
             _num_instances++;
         }
 
@@ -618,6 +635,16 @@ void AP_Mount::control_msg(uint8_t instance, mavlink_message_t *msg)
 
     // send message to backend
     _backends[instance]->control_msg(msg);
+}
+
+void AP_Mount::control(uint8_t instance, int32_t pitch_or_lat, int32_t roll_or_lon, int32_t yaw_or_alt, enum MAV_MOUNT_MODE mount_mode)
+{
+    if (instance >= AP_MOUNT_MAX_INSTANCES || _backends[instance] == NULL) {
+        return;
+    }
+
+    // send message to backend
+    _backends[instance]->control(pitch_or_lat, roll_or_lon, yaw_or_alt, mount_mode);
 }
 
 /// Return mount status information

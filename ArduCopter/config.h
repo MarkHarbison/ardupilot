@@ -104,9 +104,24 @@
 #if FRAME_CONFIG == HELI_FRAME
   # define RC_FAST_SPEED                        125
   # define WP_YAW_BEHAVIOR_DEFAULT              WP_YAW_BEHAVIOR_LOOK_AHEAD
-  # define RATE_ROLL_D                          0
-  # define RATE_PITCH_D                         0
-  # define MPU6K_FILTER                         10
+  # define RATE_ROLL_P                          0.02
+  # define RATE_ROLL_I                          0.5
+  # define RATE_ROLL_D                          0.001
+  # define RATE_ROLL_IMAX                       4500
+  # define RATE_ROLL_FF                         0.05
+  # define RATE_ROLL_FILT_HZ                    20.0f
+  # define RATE_PITCH_P                         0.02
+  # define RATE_PITCH_I                         0.5
+  # define RATE_PITCH_D                         0.001
+  # define RATE_PITCH_IMAX                      4500
+  # define RATE_PITCH_FF                        0.05
+  # define RATE_PITCH_FILT_HZ                   20.0f
+  # define RATE_YAW_P                           0.15
+  # define RATE_YAW_I                           0.100
+  # define RATE_YAW_D                           0.003
+  # define RATE_YAW_IMAX                        4500
+  # define RATE_YAW_FF                          0.02
+  # define RATE_YAW_FILT_HZ                     20.0f
   # define HELI_STAB_COLLECTIVE_MIN_DEFAULT     0
   # define HELI_STAB_COLLECTIVE_MAX_DEFAULT     1000
   # define THR_MIN_DEFAULT                      0
@@ -122,6 +137,12 @@
   # define RATE_PITCH_D                 0.006f
   # define RATE_YAW_P                   0.150f
   # define RATE_YAW_I                   0.015f
+#endif
+
+/////////////////////////////////////////////////////////////////////////////////
+// Tri defaults
+#if FRAME_CONFIG == TRI_FRAME
+  # define RATE_YAW_FILT_HZ             100.0f
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -156,7 +177,7 @@
 #endif
 
 #ifndef SONAR_GAIN_DEFAULT
- # define SONAR_GAIN_DEFAULT 0.8            // gain for controlling how quickly sonar range adjusts target altitude (lower means slower reaction)
+ # define SONAR_GAIN_DEFAULT 0.8f           // gain for controlling how quickly sonar range adjusts target altitude (lower means slower reaction)
 #endif
 
 #ifndef THR_SURFACE_TRACKING_VELZ_MAX
@@ -212,7 +233,7 @@
 
 // prearm GPS hdop check
 #ifndef GPS_HDOP_GOOD_DEFAULT
- # define GPS_HDOP_GOOD_DEFAULT         230     // minimum hdop that represents a good position.  used during pre-arm checks if fence is enabled
+ # define GPS_HDOP_GOOD_DEFAULT         140     // minimum hdop that represents a good position.  used during pre-arm checks if fence is enabled
 #endif
 
 // GCS failsafe
@@ -223,9 +244,14 @@
  # define FS_GCS_TIMEOUT_MS             5000    // gcs failsafe triggers after 5 seconds with no GCS heartbeat
 #endif
 
+// possible values for FS_GCS parameter
+#define FS_GCS_DISABLED                     0
+#define FS_GCS_ENABLED_ALWAYS_RTL           1
+#define FS_GCS_ENABLED_CONTINUE_MISSION     2
+
 // Radio failsafe while using RC_override
 #ifndef FS_RADIO_RC_OVERRIDE_TIMEOUT_MS
- # define FS_RADIO_RC_OVERRIDE_TIMEOUT_MS  2000    // RC Radio failsafe triggers after 2 seconds while using RC_override from ground station
+ # define FS_RADIO_RC_OVERRIDE_TIMEOUT_MS  1000    // RC Radio failsafe triggers after 1 second while using RC_override from ground station
 #endif
 
 // Radio failsafe
@@ -233,10 +259,9 @@
  #define FS_RADIO_TIMEOUT_MS            500     // RC Radio Failsafe triggers after 500 miliseconds with No RC Input
 #endif
 
-// possible values for FS_GCS parameter
-#define FS_GCS_DISABLED                     0
-#define FS_GCS_ENABLED_ALWAYS_RTL           1
-#define FS_GCS_ENABLED_CONTINUE_MISSION     2
+#ifndef FS_CLOSE_TO_HOME_CM
+ # define FS_CLOSE_TO_HOME_CM               500 // if vehicle within 5m of home, vehicle will LAND instead of RTL during some failsafes
+#endif
 
 // pre-arm baro vs inertial nav max alt disparity
 #ifndef PREARM_MAX_ALT_DISPARITY_CM
@@ -254,9 +279,12 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
-//  EKF Checker
-#ifndef EKFCHECK_THRESHOLD_DEFAULT
- # define EKFCHECK_THRESHOLD_DEFAULT    0.8f    // EKF checker's default compass and velocity variance above which the EKF's horizontal position will be considered bad
+//  EKF Failsafe
+#ifndef FS_EKF_ACTION_DEFAULT
+ # define FS_EKF_ACTION_DEFAULT         FS_EKF_ACTION_LAND  // EKF failsafe triggers land by default
+#endif
+#ifndef FS_EKF_THRESHOLD_DEFAULT
+ # define FS_EKF_THRESHOLD_DEFAULT      0.8f    // EKF failsafe's default compass and velocity variance threshold above which the EKF failsafe will be triggered
 #endif
 
 #ifndef EKF_ORIGIN_MAX_DIST_M
@@ -285,19 +313,10 @@
  #endif
 #endif
 
-// arming check's maximum acceptable vector difference between internal and external compass after vectors are normalized to field length of 1.0
-#ifndef COMPASS_ACCEPTABLE_VECTOR_DIFF
-  #define COMPASS_ACCEPTABLE_VECTOR_DIFF    0.75    // pre arm compass check will fail if internal vs external compass direction differ by more than 45 degrees
- #endif
-
 //////////////////////////////////////////////////////////////////////////////
 //  OPTICAL_FLOW
 #ifndef OPTFLOW
- #if AP_AHRS_NAVEKF_AVAILABLE
-  # define OPTFLOW       ENABLED
- #else
-  # define OPTFLOW       DISABLED
- #endif
+ # define OPTFLOW       ENABLED
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -310,6 +329,12 @@
 //  Crop Sprayer
 #ifndef SPRAYER
  # define SPRAYER  DISABLED
+#endif
+
+//////////////////////////////////////////////////////////////////////////////
+// Precision Landing with companion computer or IRLock sensor
+#ifndef PRECISION_LANDING
+ # define PRECISION_LANDING DISABLED
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -367,29 +392,22 @@
  # define FS_THR_VALUE_DEFAULT             975
 #endif
 
+//////////////////////////////////////////////////////////////////////////////
+// Takeoff
+//
+#ifndef PILOT_TKOFF_ALT_DEFAULT
+ # define PILOT_TKOFF_ALT_DEFAULT           0     // default final alt above home for pilot initiated takeoff
+#endif
+
+
+//////////////////////////////////////////////////////////////////////////////
+// Landing
+//
 #ifndef LAND_SPEED
  # define LAND_SPEED    50          // the descent speed for the final stage of landing in cm/s
 #endif
 #ifndef LAND_START_ALT
  # define LAND_START_ALT 1000         // altitude in cm where land controller switches to slow rate of descent
-#endif
-#ifndef LAND_DETECTOR_TRIGGER_SEC
- # define LAND_DETECTOR_TRIGGER_SEC 1.0f // number of seconds to detect a landing
-#endif
-#ifndef LAND_DETECTOR_MAYBE_TRIGGER_SEC
- # define LAND_DETECTOR_MAYBE_TRIGGER_SEC   0.2f  // number of 50hz iterations with near zero climb rate and low throttle that means we might be landed (used to reset horizontal position targets to prevent tipping over)
-#endif
-#ifndef LAND_DETECTOR_ACCEL_LPF_CUTOFF
-# define LAND_DETECTOR_ACCEL_LPF_CUTOFF 1.0f // frequency cutoff of land detector accelerometer filter
-#endif
-#ifndef LAND_DETECTOR_CLIMBRATE_MAX
-# define LAND_DETECTOR_CLIMBRATE_MAX    30  // vehicle climb rate must be between -30 and +30 cm/s
-#endif
-#ifndef LAND_DETECTOR_DESIRED_CLIMBRATE_MAX
-# define LAND_DETECTOR_DESIRED_CLIMBRATE_MAX    -20    // vehicle desired climb rate must be below -20cm/s
-#endif
-#ifndef LAND_DETECTOR_ROTATION_MAX
- # define LAND_DETECTOR_ROTATION_MAX    0.50f   // vehicle rotation must be below 0.5 rad/sec (=30deg/sec for) vehicle to consider itself landed
 #endif
 #ifndef LAND_REQUIRE_MIN_THROTTLE_TO_DISARM
  # define LAND_REQUIRE_MIN_THROTTLE_TO_DISARM DISABLED  // we do not require pilot to reduce throttle to minimum before vehicle will disarm in AUTO, LAND or RTL
@@ -399,6 +417,22 @@
 #endif
 #ifndef LAND_WITH_DELAY_MS
  # define LAND_WITH_DELAY_MS        4000    // default delay (in milliseconds) when a land-with-delay is triggered during a failsafe event
+#endif
+
+//////////////////////////////////////////////////////////////////////////////
+// Landing Detector
+//
+#ifndef LAND_DETECTOR_TRIGGER_SEC
+ # define LAND_DETECTOR_TRIGGER_SEC         1.0f    // number of seconds to detect a landing
+#endif
+#ifndef LAND_DETECTOR_MAYBE_TRIGGER_SEC
+ # define LAND_DETECTOR_MAYBE_TRIGGER_SEC   0.2f    // number of seconds that means we might be landed (used to reset horizontal position targets to prevent tipping over)
+#endif
+#ifndef LAND_DETECTOR_ACCEL_LPF_CUTOFF
+# define LAND_DETECTOR_ACCEL_LPF_CUTOFF     1.0f    // frequency cutoff of land detector accelerometer filter
+#endif
+#ifndef LAND_DETECTOR_ACCEL_MAX
+# define LAND_DETECTOR_ACCEL_MAX            1.0f    // vehicle acceleration must be under 1m/s/s
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -465,6 +499,14 @@
 
 #ifndef RTL_ALT
  # define RTL_ALT 				    1500    // default alt to return to home in cm, 0 = Maintain current altitude
+#endif
+
+#ifndef RTL_ALT_MIN
+ # define RTL_ALT_MIN               200     // min height above ground for RTL (i.e 2m)
+#endif
+
+#ifndef RTL_CLIMB_MIN_DEFAULT
+ # define RTL_CLIMB_MIN_DEFAULT     0       // vehicle will always climb this many cm as first stage of RTL
 #endif
 
 #ifndef RTL_LOITER_TIME
@@ -563,6 +605,16 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
+// Stop mode defaults
+//
+#ifndef BRAKE_MODE_SPEED_Z
+ # define BRAKE_MODE_SPEED_Z     250 // z-axis speed in cm/s in Brake Mode
+#endif
+#ifndef BRAKE_MODE_DECEL_RATE
+ # define BRAKE_MODE_DECEL_RATE  750 // acceleration rate in cm/s/s in Brake Mode
+#endif
+
+//////////////////////////////////////////////////////////////////////////////
 // Velocity (horizontal) gains
 //
 #ifndef VEL_XY_P
@@ -648,6 +700,10 @@
 // the acceleration used to define the distance-velocity curve
 #ifndef ALT_HOLD_ACCEL_MAX
  # define ALT_HOLD_ACCEL_MAX 250    // if you change this you must also update the duplicate declaration in AC_WPNav.h
+#endif
+
+#ifndef AUTO_DISARMING_DELAY
+# define AUTO_DISARMING_DELAY  10
 #endif
 
 //////////////////////////////////////////////////////////////////////////////

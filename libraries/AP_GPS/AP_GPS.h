@@ -17,16 +17,16 @@
 #ifndef __AP_GPS_H__
 #define __AP_GPS_H__
 
-#include <AP_HAL.h>
+#include <AP_HAL/AP_HAL.h>
 #include <inttypes.h>
-#include <AP_Progmem.h>
-#include <AP_Common.h>
-#include <AP_Param.h>
-#include <AP_Math.h>
-#include <GCS_MAVLink.h>
-#include <AP_Vehicle.h>
+#include <AP_Progmem/AP_Progmem.h>
+#include <AP_Common/AP_Common.h>
+#include <AP_Param/AP_Param.h>
+#include <AP_Math/AP_Math.h>
+#include <GCS_MAVLink/GCS_MAVLink.h>
+#include <AP_Vehicle/AP_Vehicle.h>
 #include "GPS_detect_state.h"
-#include "../AP_SerialManager/AP_SerialManager.h"
+#include <AP_SerialManager/AP_SerialManager.h>
 
 /**
    maximum number of GPS instances available on this platform. If more
@@ -44,11 +44,14 @@
 #define GPS_RTK_AVAILABLE 0
 #endif
 
+#define GPS_RTK_INJECT_TO_ALL 127
+
 /**
- * save flash by skipping NMEA and SIRF support on ArduCopter on APM1/2 or any frame type on AVR1280 CPUs
+ * save flash by skipping NMEA and SIRF support on copter and plane
+ * for APM1/APM2
  */
 #if HAL_CPU_CLASS < HAL_CPU_CLASS_75 && defined(APM_BUILD_DIRECTORY)
-  #if (APM_BUILD_TYPE(APM_BUILD_ArduCopter) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__))
+  #if APM_BUILD_TYPE(APM_BUILD_ArduCopter) || APM_BUILD_TYPE(APM_BUILD_ArduPlane)
     #define GPS_SKIP_SIRF_NMEA
   #endif
 #endif
@@ -85,7 +88,9 @@ public:
         GPS_TYPE_SIRF  = 6,
         GPS_TYPE_HIL   = 7,
         GPS_TYPE_SBP   = 8,
-        GPS_TYPE_PX4   = 9
+        GPS_TYPE_PX4   = 9,
+        GPS_TYPE_SBF   = 10,
+		GPS_TYPE_GSOF  = 11,
     };
 
     /// GPS status codes
@@ -127,6 +132,7 @@ public:
         float ground_speed;                 ///< ground speed in m/sec
         int32_t ground_course_cd;           ///< ground course in 100ths of a degree
         uint16_t hdop;                      ///< horizontal dilution of precision in cm
+        uint16_t vdop;                      ///< vertical dilution of precision in cm
         uint8_t num_sats;                   ///< Number of visible satelites        
         Vector3f velocity;                  ///< 3D velocitiy in m/s, in NED format
         float speed_accuracy;
@@ -277,6 +283,14 @@ public:
         return get_hdop(primary_instance);
     }
 
+    // vertical dilution of precision
+    uint16_t get_vdop(uint8_t instance) const {
+        return _GPS_STATE(instance).vdop;
+    }
+    uint16_t get_vdop() const {
+        return get_vdop(primary_instance);
+    }
+
     // the time we got our last fix in system milliseconds. This is
     // used when calculating how far we might have moved since that fix
     uint32_t last_fix_time_ms(uint8_t instance) const {
@@ -330,9 +344,12 @@ public:
     AP_Int8 _min_dgps;
     AP_Int16 _sbp_logmask;
     AP_Int8 _inject_to;
+    uint32_t _last_instance_swap_ms;
 #endif
     AP_Int8 _sbas_mode;
     AP_Int8 _min_elevation;
+    AP_Int8 _raw_data;
+    AP_Int8 _gnss_mode;
     
     // handle sending of initialisation strings to the GPS
     void send_blob_start(uint8_t instance, const prog_char *_blob, uint16_t size);
@@ -402,18 +419,23 @@ private:
 
     static const uint32_t  _baudrates[];
     static const prog_char _initialisation_blob[];
+    static const prog_char _initialisation_raw_blob[];
 
     void detect_instance(uint8_t instance);
     void update_instance(uint8_t instance);
 };
 
-#include <GPS_Backend.h>
-#include <AP_GPS_UBLOX.h>
-#include <AP_GPS_MTK.h>
-#include <AP_GPS_MTK19.h>
-#include <AP_GPS_NMEA.h>
-#include <AP_GPS_SIRF.h>
-#include <AP_GPS_SBP.h>
-#include <AP_GPS_PX4.h>
+#define GPS_BAUD_TIME_MS 1200
+
+#include "GPS_Backend.h"
+#include "AP_GPS_UBLOX.h"
+#include "AP_GPS_MTK.h"
+#include "AP_GPS_MTK19.h"
+#include "AP_GPS_NMEA.h"
+#include "AP_GPS_SIRF.h"
+#include "AP_GPS_SBP.h"
+#include "AP_GPS_PX4.h"
+#include "AP_GPS_SBF.h"
+#include "AP_GPS_GSOF.h"
 
 #endif // __AP_GPS_H__

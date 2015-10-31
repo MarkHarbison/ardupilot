@@ -25,10 +25,10 @@
      unmaintained 
 */
 
-#include <AP_HAL.h>
+#include <AP_HAL/AP_HAL.h>
 #if CONFIG_HAL_BOARD == HAL_BOARD_LINUX
 
-#include <AP_Math.h>
+#include <AP_Math/AP_Math.h>
 #include "AP_InertialSensor_MPU9150.h"
 #include <stdio.h>
 #include <unistd.h>
@@ -469,7 +469,7 @@ bool AP_InertialSensor_MPU9150::_init_sensor(void)
     _accel_instance = _imu.register_accel();
 
     // start the timer process to read samples    
-    hal.scheduler->register_timer_process(AP_HAL_MEMBERPROC(&AP_InertialSensor_MPU9150::_accumulate));
+    hal.scheduler->register_timer_process(FUNCTOR_BIND_MEMBER(&AP_InertialSensor_MPU9150::_accumulate, void));
 
     return true;
 
@@ -1059,6 +1059,8 @@ void AP_InertialSensor_MPU9150::_accumulate(void)
 
     // read the samples
     for (uint16_t i=0; i< fifo_count; i++) {        
+        Vector3f accel, gyro;
+
         // read the data
         // TODO check whether it's possible to read all the packages in a single call
         hal.i2c->readRegisters(st.hw->addr, st.reg->fifo_r_w, packet_size, data);
@@ -1086,9 +1088,18 @@ void AP_InertialSensor_MPU9150::_accumulate(void)
 
         // TODO Revisit why AP_InertialSensor_L3G4200D uses a minus sign in the y and z component. Maybe this
         //  is because the sensor is placed in the bottom side of the board?
-        _accel_filtered = _accel_filter.apply(Vector3f(accel_x, accel_y, accel_z));
 
-        _gyro_filtered = _gyro_filter.apply(Vector3f(gyro_x, gyro_y, gyro_z));
+        accel = Vector3f(accel_x, accel_y, accel_z);
+        accel *= MPU9150_ACCEL_SCALE_2G;
+        _rotate_and_correct_accel(_accel_instance, accel);
+        _notify_new_accel_raw_sample(_accel_instance, accel);
+        _accel_filtered = _accel_filter.apply(accel);
+
+        gyro = Vector3f(gyro_x, gyro_y, gyro_z);
+        gyro *= MPU9150_GYRO_SCALE_2000;
+        _rotate_and_correct_gyro(_gyro_instance, gyro);
+        _notify_new_gyro_raw_sample(_gyro_instance, gyro);
+        _gyro_filtered = _gyro_filter.apply(gyro);
 
         _have_sample_available = true;
     }
@@ -1107,10 +1118,7 @@ bool AP_InertialSensor_MPU9150::update(void)
     _have_sample_available = false;
     hal.scheduler->resume_timer_procs();
 
-    accel *= MPU9150_ACCEL_SCALE_2G;
     _publish_accel(_accel_instance, accel);
-
-    gyro *= MPU9150_GYRO_SCALE_2000;
     _publish_gyro(_gyro_instance, gyro);
 
     if (_last_accel_filter_hz != _accel_filter_cutoff()) {

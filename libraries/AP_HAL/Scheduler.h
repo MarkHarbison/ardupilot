@@ -2,11 +2,14 @@
 #ifndef __AP_HAL_SCHEDULER_H__
 #define __AP_HAL_SCHEDULER_H__
 
-#include "AP_HAL_Namespace.h"
-#include "AP_HAL_Boards.h"
-
 #include <stdint.h>
-#include <AP_Progmem.h>
+
+#include <AP_Common/AP_Common.h>
+#include <AP_Progmem/AP_Progmem.h>
+
+#include "AP_HAL_Boards.h"
+#include "AP_HAL_Namespace.h"
+
 
 class AP_HAL::Scheduler {
 public:
@@ -15,11 +18,8 @@ public:
     virtual void     delay(uint16_t ms) = 0;
     virtual uint32_t millis() = 0;
     virtual uint32_t micros() = 0;
-#if HAL_CPU_CLASS >= HAL_CPU_CLASS_150
-    // offer non-wrapping 64 bit versions on faster CPUs
     virtual uint64_t millis64() = 0;
     virtual uint64_t micros64() = 0;
-#endif
 
     /*
       delay for the given number of microseconds. This needs to be as
@@ -57,7 +57,7 @@ public:
     virtual bool     system_initializing() = 0;
     virtual void     system_initialized() = 0;
 
-    virtual void     panic(const prog_char_t *errormsg) = 0;
+    virtual void     panic(const prog_char_t *errormsg, ...) FORMAT(2, 3) NORETURN = 0;
     virtual void     reboot(bool hold_in_bootloader) = 0;
 
     /**

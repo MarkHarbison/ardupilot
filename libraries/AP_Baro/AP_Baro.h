@@ -3,25 +3,18 @@
 #ifndef __AP_BARO_H__
 #define __AP_BARO_H__
 
-#include <AP_HAL.h>
-#include <AP_Param.h>
-#include <Filter.h>
-#include <DerivativeFilter.h>
+#include <AP_HAL/AP_HAL.h>
+#include <AP_Param/AP_Param.h>
+#include <Filter/Filter.h>
+#include <Filter/DerivativeFilter.h>
+#include <AP_Buffer/AP_Buffer.h>
 
 // maximum number of sensor instances
-#if HAL_CPU_CLASS == HAL_CPU_CLASS_16
-#define BARO_MAX_INSTANCES 1
-#else
-#define BARO_MAX_INSTANCES 2
-#endif
+#define BARO_MAX_INSTANCES 3
 
 // maximum number of drivers. Note that a single driver can provide
 // multiple sensor instances
-#if HAL_CPU_CLASS == HAL_CPU_CLASS_16
-#define BARO_MAX_DRIVERS 1
-#else
 #define BARO_MAX_DRIVERS 2
-#endif
 
 class AP_Baro_Backend;
 
@@ -79,6 +72,9 @@ public:
     // get scale factor required to convert equivalent to true airspeed
     float get_EAS2TAS(void);
 
+    // get air density / sea level density - decreases as altitude climbs
+    float get_air_density_ratio(void);
+
     // get current climb rate in meters/s. A positive number means
     // going up
     float get_climb_rate(void);
@@ -114,6 +110,12 @@ public:
     // HIL (and SITL) interface, setting pressure and temperature
     void setHIL(uint8_t instance, float pressure, float temperature);
 
+    // HIL variables
+    struct {
+        AP_Buffer<float,10> press_buffer;
+        AP_Buffer<float,10> temp_buffer;
+    } _hil;
+
     // register a new sensor, claiming a sensor slot. If we are out of
     // slots it will panic
     uint8_t register_sensor(void);
@@ -147,7 +149,8 @@ private:
         AP_Float ground_pressure;
     } sensors[BARO_MAX_INSTANCES];
 
-    AP_Int8                             _alt_offset;
+    AP_Float                            _alt_offset;
+    AP_Int8                             _primary_baro; // primary chosen by user
     float                               _last_altitude_EAS2TAS;
     float                               _EAS2TAS;
     float                               _external_temperature;
